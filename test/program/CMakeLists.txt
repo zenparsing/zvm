@@ -1,0 +1,2 @@
+add_executable(zvm_test_program main.cpp)
+target_link_libraries(zvm_test_program LINK_PUBLIC program)
