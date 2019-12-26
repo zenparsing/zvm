@@ -5,8 +5,9 @@
 namespace zvm {
 
   bool validate_func(
-    const Func& func,
+    Func& func,
+    const Interface& global,
     const InterfaceTypeTable& interface_types,
-    const InterfaceNameTable& interface_names);
+    ValidationToken validation_token = 0);
 
 }

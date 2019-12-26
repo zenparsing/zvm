@@ -2,7 +2,9 @@
 #include <iostream>
 
 #include <unordered_set>
-#include "program/validator.h"
+
+#include "program/func.h"
+#include "interpreter/interpreter.h"
 
 using namespace zvm;
 
@@ -41,15 +43,17 @@ struct Allocator {
   }
 };
 
-void test_validator() {
-  Allocator<Statement> allocator;
+struct InterpreterTraits {};
 
+int main() {
+  Allocator<Statement> allocator;
   Func func;
 
   func.arg_count = 1;
 
   func.registers = {
     RegisterTypes::Bool,
+    RegisterTypes::Int32,
     RegisterTypes::Int32,
     RegisterTypes::UInt64,
   };
@@ -58,20 +62,23 @@ void test_validator() {
 
   func.block = make_block({
     allocator.create<LoadStatement>(1, 123),
-    allocator.create<LoadStatement>(1, 456),
+    allocator.create<LoadStatement>(2, 456),
     allocator.create<IfStatement>(0, make_block({
-      allocator.create<ReturnStatement>(0),
+      allocator.create<ReturnStatement>(1),
     }), make_block({
-      allocator.create<ReturnStatement>(0),
+      allocator.create<ReturnStatement>(2),
     })),
   });
 
   Interface global;
 
-  std::cout << validate_func(func, global, {});
-}
+  InterpreterFrame<InterpreterTraits> frame {func};
+  auto exit = frame.execute();
 
-int main() {
-  test_validator();
+  std::cout
+    << "result: " << static_cast<int>(exit)
+    << "/" << frame.get_reg(frame.return_register)
+    << "\n";
+
   return 0;
 }

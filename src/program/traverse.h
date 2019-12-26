@@ -2,79 +2,66 @@
 
 #include "func.h"
 
-namespace {
-  using namespace zvm;
-
-  template<typename T>
-  T& cast_statement(Statement& stmt) {
-    // TODO: assert
-    return reinterpret_cast<T&>(stmt);
-  }
-
-  template<typename T>
-  const T& cast_statement(const Statement& stmt) {
-    // TODO: assert
-    return reinterpret_cast<const T&>(stmt);
-  }
-
-  template<typename T>
-  struct TraversalMapper {
-    T& visitor;
-
-    explicit TraversalMapper(T& visitor) : visitor {visitor} {}
-
-    template<typename S, typename F>
-    void visit(S& stmt, F fn) {
-      this->visitor.enter_statement(stmt);
-      fn();
-      this->visitor.leave_statement(stmt);
-    }
-
-    void visit_block(const Block& block) {
-      traverse_block(block, this->visitor);
-    }
-
-    template<typename S>
-    void operator()(const S& stmt) {
-      this->visit(stmt, []() {});
-    }
-
-    template<>
-    void operator()(const IfStatement& stmt) {
-      this->visit(stmt, [&]() {
-        this->visit_block(stmt.true_block);
-        this->visit_block(stmt.false_block);
-      });
-    }
-
-    template<>
-    void operator()(const RepeatStatement& stmt) {
-      this->visit(stmt, [&]() {
-        this->visit_block(stmt.block);
-      });
-    }
-
-    template<>
-    void operator()(const TryStatement& stmt) {
-      this->visit(stmt, [&]() {
-        this->visit_block(stmt.try_block);
-        this->visit_block(stmt.catch_block);
-      });
-    }
-
-    template<>
-    void operator()(const FinallyStatement& stmt) {
-      this->visit(stmt, [&]() {
-        this->visit_block(stmt.block);
-        this->visit_block(stmt.finally_block);
-      });
-    }
-
-  };
-
-}
-
 namespace zvm {
+
+  namespace {
+
+    template<typename T>
+    struct TraversalMapper {
+      T& visitor;
+
+      explicit TraversalMapper(T& visitor) : visitor {visitor} {}
+
+      template<typename S, typename F>
+      void visit(S& stmt, F fn) {
+        this->visitor.enter_statement(stmt);
+        fn();
+        this->visitor.leave_statement(stmt);
+      }
+
+      void visit_block(const Block& block) {
+        traverse_block(block, this->visitor);
+      }
+
+      template<typename S>
+      void operator()(const S& stmt) {
+        this->visit(stmt, []() {});
+      }
+
+      template<>
+      void operator()(const IfStatement& stmt) {
+        this->visit(stmt, [&]() {
+          this->visit_block(stmt.true_block);
+          this->visit_block(stmt.false_block);
+        });
+      }
+
+      template<>
+      void operator()(const RepeatStatement& stmt) {
+        this->visit(stmt, [&]() {
+          this->visit_block(stmt.block);
+        });
+      }
+
+      template<>
+      void operator()(const TryStatement& stmt) {
+        this->visit(stmt, [&]() {
+          this->visit_block(stmt.try_block);
+          this->visit_block(stmt.catch_block);
+        });
+      }
+
+      template<>
+      void operator()(const FinallyStatement& stmt) {
+        this->visit(stmt, [&]() {
+          this->visit_block(stmt.block);
+          this->visit_block(stmt.finally_block);
+        });
+      }
+
+    };
+
+  }
 
   template<typename S, typename F>
   auto map_statement(S& stmt, F& fn) {
@@ -84,8 +71,6 @@ namespace zvm {
         return fn(cast_statement<LoadStatement>(stmt));
       case Kind::Call:
         return fn(cast_statement<CallStatement>(stmt));
-      case Kind::Invoke:
-        return fn(cast_statement<InvokeStatement>(stmt));
       case Kind::If:
         return fn(cast_statement<IfStatement>(stmt));
       case Kind::Repeat:

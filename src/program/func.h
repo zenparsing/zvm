@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <memory>
+#include <utility>
 #include <vector>
 #include <unordered_map>
 
@@ -10,7 +10,6 @@ namespace zvm {
   enum class StatementKind {
     Load,
     Call,
-    Invoke,
     If,
     Repeat,
     Break,
@@ -53,13 +52,24 @@ namespace zvm {
       : nullptr;
   }
 
+  template<typename T>
+  T& cast_statement(Statement& stmt) {
+    // TODO: assert(stmt._kind == T::instance_kind)
+    return reinterpret_cast<T&>(stmt);
+  }
+
+  template<typename T>
+  const T& cast_statement(const Statement& stmt) {
+    // TODO: assert(stmt._kind == T::instance_kind)
+    return reinterpret_cast<const T&>(stmt);
+  }
+
   using Register = uint16_t;
   using RegisterType = uint32_t;
   using RegisterValue = uint64_t;
 
-  constexpr Register max_register() {
-    return ~0;
-  }
+  constexpr Register void_register() { return ~0; }
+  constexpr Register max_register() { return ~0 - 1; }
 
   namespace RegisterTypes {
     enum FundamentalTypes : RegisterType {
@@ -81,9 +91,18 @@ namespace zvm {
     };
   }
 
+  // TODO: This should perhaps go into a common/memory file
+  template<typename T>
+  using Pointer = T*;
+
   using FuncName = uint16_t;
   using InterfaceName = uint16_t;
-  using Block = std::vector<Statement*>;
+  using ValidationToken = uintptr_t;
+  using Block = std::vector<Pointer<Statement>>;
+
+  inline Block make_block(std::initializer_list<Pointer<Statement>> init) {
+    return Block {std::move(init)};
+  }
 
   struct LoadStatement : public TypedStatement<StatementKind::Load> {
     Register target;
@@ -96,28 +115,11 @@ namespace zvm {
 
   struct CallStatement : public TypedStatement<StatementKind::Call> {
     Register target;
-    InterfaceName interface_name;
-    FuncName func_name;
-    std::vector<Register> args;
-
-    CallStatement(
-      Register target,
-      InterfaceName interface_name,
-      FuncName func_name,
-      std::vector<Register>&& args = {}) :
-        target {target},
-        interface_name {interface_name},
-        func_name {func_name},
-        args {std::move(args)} {}
-  };
-
-  struct InvokeStatement : public TypedStatement<StatementKind::Invoke> {
-    Register target;
     Register interface;
     FuncName func_name;
     std::vector<Register> args;
 
-    InvokeStatement(
+    CallStatement(
       Register target,
       Register interface,
       FuncName func_name,
@@ -194,23 +196,24 @@ namespace zvm {
     explicit YieldStatement(Register source) : source {source} {}
   };
 
+  // TODO: Create useful constructors
   struct Func {
+    ValidationToken validation_token = 0;
     Register arg_count = 0;
     std::vector<RegisterType> registers;
     RegisterType return_type = RegisterTypes::Void;
     Block block;
+
+    Func() {}
   };
 
+  // TODO: Add a method for doing lookups. Eventually this should
+  // support caching. How do we model objects? I suppose they are
+  // a binding
   struct Interface {
-    // TODO: Add a method for doing lookups. Eventually this should
-    // support caching. How do we model objects? I suppose they are
-    // a binding
-    // TODO: This should be a pointer
-    std::unordered_map<FuncName, const Func&> func_map;
+    std::unordered_map<FuncName, Pointer<Func>> func_map;
   };
 
-  // TODO: This should map to pointers or const refs
-  using InterfaceTypeTable = std::unordered_map<RegisterType, const Interface&>;
-  using InterfaceNameTable = std::unordered_map<InterfaceName, const Interface&>;
+  using InterfaceTypeTable = std::unordered_map<RegisterType, Pointer<Interface>>;
 
 }
